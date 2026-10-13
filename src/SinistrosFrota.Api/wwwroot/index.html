@@ -2,62 +2,96 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Central de Frota e Sinistros</title>
+  <meta name="description" content="Mapa 3D ao vivo da frota de motoboys da rede Sabor de Casa e acompanhamento dos sinistros.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilo.css">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
 </head>
 <body>
+  <div id="mapa" class="mapa" aria-label="Mapa 3D do bairro com a frota"></div>
+
   <header class="topo">
-    <div>
-      <h1>Central de Frota e Sinistros</h1>
-      <p class="sub">Rede Sabor de Casa · entregas próprias</p>
+    <div class="marca">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 9.5 12 4l8 5.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>
+      </span>
+      <div><b>Sabor de Casa</b><small>Central de frota e sinistros</small></div>
     </div>
-    <div class="conexao" id="conexao" data-estado="conectando">
-      <span class="ponto"></span><span id="conexao-texto">Conectando</span>
+
+    <div class="busca">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      <input id="busca" type="search" placeholder="Buscar motoboy, placa ou sinistro #" autocomplete="off" aria-label="Buscar">
+      <kbd>/</kbd>
+      <ul id="resultados" class="resultados" hidden></ul>
+    </div>
+
+    <div class="unidade">
+      <button id="unidade-btn" class="unidade-btn" type="button" aria-haspopup="listbox">
+        <span class="sigla" id="unidade-sigla">REDE</span>
+        <span class="unidade-texto"><b id="unidade-nome">Toda a rede</b><small id="unidade-info"></small></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+      </button>
+      <ul id="unidade-menu" class="menu" role="listbox" hidden></ul>
+    </div>
+
+    <div class="aovivo" id="conexao" data-estado="conectando">
+      <i></i><span id="conexao-texto">Conectando</span><time id="relogio">--:--</time>
+    </div>
+
+    <div class="usuario">
+      <span class="iniciais">AN</span>
+      <div><b>Ana Nogueira</b><small>Analista de sinistros</small></div>
     </div>
   </header>
 
-  <section class="resumo" aria-label="Resumo">
-    <div class="numero"><strong id="n-Disponivel">0</strong><span>Disponíveis</span></div>
-    <div class="numero"><strong id="n-EmEntrega">0</strong><span>Em entrega</span></div>
-    <div class="numero"><strong id="n-EmPausa">0</strong><span>Em pausa</span></div>
-    <div class="numero alerta"><strong id="n-Ocorrencia">0</strong><span>Em ocorrência</span></div>
-    <div class="numero"><strong id="n-abertos">0</strong><span>Sinistros em andamento</span></div>
-    <div class="numero"><strong id="n-apagar">R$ 0</strong><span>Aprovado a pagar</span></div>
+  <section class="kpis" aria-label="Indicadores">
+    <article class="kpi"><span class="kpi-icone verde"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="m8.5 12 2.4 2.4 4.6-4.8"/></svg></span>
+      <div><small><span class="longo">Disponíveis</span><span class="curto">Livres</span></small><strong id="k-disp">0</strong><em id="k-disp-sub"></em></div></article>
+    <article class="kpi"><span class="kpi-icone azul"><svg viewBox="0 0 24 24"><circle cx="6" cy="17" r="2.6"/><circle cx="18" cy="17" r="2.6"/><path d="M8.6 17h6.8M14 7h3l2.4 6M9.5 11h5L13 7"/></svg></span>
+      <div><small><span class="longo">Em entrega</span><span class="curto">Na rua</span></small><strong id="k-entrega">0</strong><em id="k-entrega-sub"></em></div></article>
+    <article class="kpi"><span class="kpi-icone vermelho"><svg viewBox="0 0 24 24"><path d="M12 4 3 19.5h18z"/><path d="M12 10v4.5M12 17v.1"/></svg></span>
+      <div><small><span class="longo">Em ocorrência</span><span class="curto">Ocorrência</span></small><strong id="k-ocorr">0</strong><em id="k-ocorr-sub"></em></div></article>
+    <article class="kpi"><span class="kpi-icone ambar"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/></svg></span>
+      <div><small><span class="longo">Sinistros em andamento</span><span class="curto">Sinistros</span></small><strong id="k-andamento">0</strong><em id="k-andamento-sub"></em></div></article>
+    <article class="kpi"><span class="kpi-icone azul"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/></svg></span>
+      <div><small><span class="longo">Aprovado a pagar</span><span class="curto">R$ a pagar</span></small><strong id="k-apagar">R$ 0</strong><em id="k-apagar-sub"></em></div></article>
   </section>
 
-  <main class="grade">
-    <section class="painel" aria-labelledby="t-frota">
-      <div class="painel-cabeca">
-        <h2 id="t-frota">Frota agora</h2>
-        <span class="dica" id="frota-total"></span>
-      </div>
-      <table class="tabela frota">
-        <thead><tr><th>Motoboy</th><th>Moto</th><th>Status</th><th class="dir">Desde</th></tr></thead>
-        <tbody id="frota"></tbody>
-      </table>
+  <nav class="controles" aria-label="Câmera">
+    <button type="button" data-cam="mais" title="Aproximar"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+    <button type="button" data-cam="menos" title="Afastar"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+    <span class="sep"></span>
+    <button type="button" data-cam="esq" title="Girar para a esquerda"><svg viewBox="0 0 24 24"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 4.5v3.6h3.6"/></svg></button>
+    <button type="button" data-cam="dir" title="Girar para a direita"><svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.2-5.1M19 4.5v3.6h-3.6"/></svg></button>
+    <span class="sep"></span>
+    <button type="button" data-cam="casa" title="Visão geral"><svg viewBox="0 0 24 24"><path d="M4.5 11 12 5l7.5 6M7 9.5V19h10V9.5"/></svg></button>
+  </nav>
 
-      <div class="painel-cabeca eventos-cabeca">
-        <h2>Últimos eventos</h2>
-      </div>
-      <ol class="eventos" id="eventos"></ol>
-    </section>
+  <div class="gaveta" id="gaveta">
+    <button class="alca" id="alca" type="button" aria-label="Expandir painel"><span></span></button>
 
-    <section class="painel" aria-labelledby="t-fila">
-      <div class="painel-cabeca">
-        <h2 id="t-fila">Fila de sinistros</h2>
-        <button class="botao primario" id="abrir-novo" type="button">Abrir sinistro</button>
+    <aside class="painel detalhe" id="detalhe" hidden></aside>
+
+    <section class="painel acompanhamento" id="acompanhamento" aria-label="Acompanhamento do sinistro"></section>
+
+    <section class="painel abas" aria-label="Listas">
+      <div class="abas-topo">
+        <div class="abas-botoes" role="tablist">
+          <button type="button" role="tab" data-aba="motoboys" class="ativa">Motoboys <span id="n-motoboys">0</span></button>
+          <button type="button" role="tab" data-aba="sinistros">Sinistros <span id="n-sinistros">0</span></button>
+          <button type="button" role="tab" data-aba="eventos">Eventos</button>
+        </div>
+        <small id="abas-unidade">Toda a rede</small>
       </div>
-      <table class="tabela fila">
-        <thead><tr><th>#</th><th>Ocorrência</th><th class="dir">Valor</th><th>Situação</th><th></th></tr></thead>
-        <tbody id="fila"></tbody>
-      </table>
-      <p class="vazio" id="fila-vazia" hidden>Nenhum sinistro em andamento.</p>
+      <div class="abas-corpo" id="abas-corpo"></div>
     </section>
-  </main>
+  </div>
 
   <dialog id="dlg-novo">
     <form method="dialog" id="form-novo">
@@ -81,7 +115,7 @@
       </label>
       <div class="acoes-dialogo">
         <button class="botao" value="cancelar" formnovalidate>Cancelar</button>
-        <button class="botao primario" value="ok">Abrir</button>
+        <button class="botao primario" value="ok">Abrir sinistro</button>
       </div>
     </form>
   </dialog>
@@ -92,7 +126,7 @@
       <label>Dano apurado na vistoria (R$)
         <input name="valorApurado" type="number" min="1" step="0.01" required>
       </label>
-      <p class="dica">A indenização desconta a franquia da apólice e respeita o teto de cobertura. Roubo não tem franquia.</p>
+      <p class="nota">A indenização desconta a franquia da apólice e respeita o teto de cobertura. Roubo não tem franquia.</p>
       <div class="acoes-dialogo">
         <button class="botao" value="cancelar" formnovalidate>Cancelar</button>
         <button class="botao primario" value="ok">Aprovar</button>
@@ -101,8 +135,9 @@
   </dialog>
 
   <div class="aviso" id="aviso" role="status" hidden></div>
+  <div class="carregando" id="carregando">Montando o bairro</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="js/painel.js"></script>
 </body>
 </html>
