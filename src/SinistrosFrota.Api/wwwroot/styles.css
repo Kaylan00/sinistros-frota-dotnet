@@ -164,5 +164,23 @@ dialog input, dialog select, dialog textarea {
   .numero:nth-child(-n+2) { border-top: 0; }
   .numero:nth-child(even) { border-left: 1px solid var(--linha); }
   .grade { padding: 16px; }
-  .painel { padding: 14px; overflow-x: auto; }
+  .painel { padding: 14px; }
+
+  /* no celular cada linha da tabela vira um bloco de duas colunas */
+  .tabela thead { display: none; }
+  .tabela tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
+  .tabela tr:last-child { border-bottom: 0; }
+  .tabela td { padding: 0; border: 0; }
+  .frota td:nth-child(1) { grid-area: 1 / 1; }
+  .frota td:nth-child(2) { grid-area: 2 / 1; }
+  .frota td:nth-child(3) { grid-area: 3 / 1; }
+  .frota td:nth-child(4) { grid-area: 1 / 2 / 4 / 3; }
+  .fila td:nth-child(1) { display: none; }
+  .fila td:nth-child(2) { grid-column: 1 / -1; }
+  .fila td:nth-child(3) { grid-area: 2 / 1; text-align: left; }
+  .fila td:nth-child(4) { grid-area: 2 / 2; text-align: right; }
+  .fila td:nth-child(5) { grid-column: 1 / -1; }
+  .fila td:nth-child(5) .acoes { justify-content: flex-start; margin-top: 4px; }
+  .frota td:nth-child(2) .menor { display: inline; }
+  .frota td:nth-child(2) .menor::before { content: " · "; }
 }

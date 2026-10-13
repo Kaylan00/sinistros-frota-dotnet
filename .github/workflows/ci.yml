@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-e-unitarios:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      - name: Testes unitários (domínio, sem banco)
+        run: dotnet test tests/SinistrosFrota.Tests --no-build -c Release --logger "console;verbosity=normal"
+
+  integracao:
+    runs-on: ubuntu-latest
+    needs: build-e-unitarios
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_PID: Developer
+          # senha descartável: o container só existe durante o job
+          MSSQL_SA_PASSWORD: Ci!Sinistros2026
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci!Sinistros2026' -C -b -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+          --health-start-period 20s
+
+    env:
+      SINISTROS_TEST_CONNECTION: Server=localhost,1433;Database=SinistrosFrotaTestes;User Id=sa;Password=Ci!Sinistros2026;TrustServerCertificate=True
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Testes de integração (SQL Server real)
+        run: dotnet test tests/SinistrosFrota.IntegrationTests -c Release --logger "console;verbosity=normal"
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build-e-unitarios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem da API
+        run: docker build -t sinistros-frota-api .
