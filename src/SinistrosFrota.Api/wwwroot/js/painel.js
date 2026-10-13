@@ -69,7 +69,34 @@ const sinistrosVisiveis = () => [...estado.sinistros.values()]
 
 // ---------- API ----------
 
+// Sem back-end (site estático na Vercel) o painel usa a API simulada de demo.js.
+let demo = null;
+const REPO = "https://github.com/Kaylan00/sinistros-frota-dotnet";
+
+async function temBackend() {
+  if (new URLSearchParams(location.search).has("demo")) return false;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const r = await fetch("/health", { cache: "no-store", signal: ctrl.signal });
+    return r.ok && (await r.json()).status === "ok";
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function mostrarAvisoDemo() {
+  document.body.classList.add("demo");
+  const el = document.createElement("p");
+  el.className = "aviso-demo";
+  el.innerHTML = `<span class="longo">Demonstração no navegador: dados simulados. O back-end real (ASP.NET Core + SQL Server) está no </span><span class="curto">Demonstração com dados simulados. Back-end real no </span><a href="${REPO}" target="_blank" rel="noopener">GitHub</a>`;
+  document.body.appendChild(el);
+}
+
 async function api(caminho, opcoes = {}) {
+  if (demo) return demo.api(caminho, { ...opcoes, headers: { "X-Usuario": "ana.nogueira", ...(opcoes.headers || {}) } });
   const resp = await fetch(caminho, {
     ...opcoes,
     headers: { "content-type": "application/json", "X-Usuario": "ana.nogueira", ...(opcoes.headers || {}) }
@@ -590,7 +617,7 @@ function atualizarMargens() {
   const baixo = altura - document.querySelector(".abas").getBoundingClientRect().top;
   const det = $("detalhe");
   const direita = det.hidden ? 70 : innerWidth - det.getBoundingClientRect().left + 60;
-  cena.definirMargens({ topo: 175, baixo, direita, esquerda: 0 });
+  cena.definirMargens({ topo: demo ? 205 : 175, baixo, direita, esquerda: 0 });
 }
 addEventListener("resize", atualizarMargens);
 
@@ -633,18 +660,41 @@ async function carregar() {
   redesenhar();
 }
 
-const conexao = new signalR.HubConnectionBuilder().withUrl("/hubs/frota").withAutomaticReconnect().build();
-conexao.on("StatusMotoristaAlterado", receberMotorista);
-conexao.on("SinistroAtualizado", ({ evento, sinistro }) => receberSinistro(evento, sinistro));
-conexao.onreconnecting(() => estadoConexao("caiu", "Reconectando"));
-conexao.onreconnected(async () => { estadoConexao("ok", "Ao vivo"); await carregar(); });
-conexao.onclose(() => estadoConexao("caiu", "Desconectado"));
+// o cliente do SignalR só é baixado quando existe back-end de verdade
+function carregarSignalR() {
+  if (window.signalR) return Promise.resolve();
+  return new Promise((ok, falha) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js";
+    s.onload = ok;
+    s.onerror = () => falha(new Error("Não foi possível carregar o cliente do SignalR."));
+    document.head.appendChild(s);
+  });
+}
+
+async function conectar() {
+  // demo: mesmos eventos, emitidos pela API simulada; real: SignalR em /hubs/frota
+  if (!demo) await carregarSignalR();
+  const conexao = demo ? demo.conexao : new signalR.HubConnectionBuilder().withUrl("/hubs/frota").withAutomaticReconnect().build();
+  conexao.on("StatusMotoristaAlterado", receberMotorista);
+  conexao.on("SinistroAtualizado", ({ evento, sinistro }) => receberSinistro(evento, sinistro));
+  conexao.onreconnecting(() => estadoConexao("caiu", "Reconectando"));
+  conexao.onreconnected(async () => { estadoConexao("ok", "Ao vivo"); await carregar(); });
+  conexao.onclose(() => estadoConexao("caiu", "Desconectado"));
+  return conexao;
+}
 
 (async function iniciar() {
   if (new URLSearchParams(location.search).has("so-mapa")) document.body.classList.add("so-mapa");
   relogio();
   setInterval(relogio, 10000);
+  if (!(await temBackend())) {
+    const { criarDemo } = await import("./demo.js");
+    demo = criarDemo();
+    mostrarAvisoDemo();
+  }
   try {
+    const conexao = await conectar();
     await carregar();
     await conexao.start();
     estadoConexao("ok", "Ao vivo");
@@ -658,4 +708,4 @@ conexao.onclose(() => estadoConexao("caiu", "Desconectado"));
 })();
 
 // atalho para os prints e para depurar no console
-window.central = { cena, estado, selecionar, trocarUnidade };
+window.central = { cena, estado, selecionar, trocarUnidade, api };
