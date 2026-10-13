@@ -1,0 +1,9 @@
+{
+  "rewrites": [{ "source": "/health", "destination": "/health.json" }],
+  "headers": [
+    {
+      "source": "/(js/.*|estilo.css)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" }]
+    }
+  ]
+}

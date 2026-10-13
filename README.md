@@ -1,5 +1,7 @@
 # Frota e Sinistros em tempo real
 
+**Ver ao vivo: [sinistros-frota.vercel.app](https://sinistros-frota.vercel.app)** (modo demonstração no navegador, explicado abaixo)
+
 Central de uma rede de restaurantes com entrega própria: o **status de cada motoboy aparece ao vivo** (disponível, em entrega, em pausa, em ocorrência) e os **sinistros da frota** (acidente, roubo, avaria da moto ou do baú) seguem um fluxo controlado até o pagamento da indenização pelo seguro.
 
 Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, SignalR e xUnit**. A regra que muda dinheiro e status fica no banco, em procedures T-SQL com transação e `TRY/CATCH`; o domínio em C# foi escrito em TDD.
@@ -119,6 +121,12 @@ A central é um bairro low-poly visto de cima, com câmera de jogo de estratégi
 | ![Sinistro aberto](docs/pc-3-sinistro-aberto.png) | ![Moto indo para a oficina](docs/pc-4-a-caminho-da-oficina.png) | ![Celular](docs/cel-3-sinistro-aberto.png) |
 
 Código em `src/SinistrosFrota.Api/wwwroot/js/`: `cidade.js` (ruas, quarteirões, unidades, oficina, seguradora), `moto.js` (modelos e o "piloto automático" pelas ruas), `cena.js` (renderização, câmera, marcadores, seleção) e `painel.js` (API, SignalR e interface).
+
+### Modo demonstração (o link da Vercel)
+
+A Vercel só hospeda arquivos estáticos: não roda ASP.NET Core nem SQL Server. Por isso o painel testa o back-end ao abrir (`GET /health`). Com a API de verdade (Docker ou `dotnet run`), usa a API REST e o SignalR normalmente. Sem back-end, carrega `wwwroot/js/demo.js`, que responde os mesmos endpoints em memória, com o mesmo seed (8 motoboys, 15 sinistros), as mesmas regras das procedures (transições, apólice vigente, franquia, pagamento duplicado barrado) e o mesmo simulador de status. Uma faixa no topo avisa que os dados são simulados e aponta para este repositório. Para forçar o modo demonstração localmente, abra com `?demo`.
+
+Publicação: `deploy/publicar-vercel.sh` copia o `wwwroot` e o `deploy/vercel/vercel.json` (que faz `/health` responder `{"status":"demo"}`) e roda `vercel deploy --prod`.
 
 ### Créditos e licenças
 

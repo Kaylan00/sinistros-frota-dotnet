@@ -181,6 +181,7 @@ Regra de ouro para falar na entrevista: **nunca rodar UPDATE ou DELETE sem WHERE
 - **As motos andam por uma malha de ruas** (grade de cruzamentos). Para ir de um ponto a outro, uma busca em largura (BFS) acha o caminho entre cruzamentos; o caminho é deslocado para a faixa da direita e as esquinas viram curvas (Bézier). Em cada quadro a moto anda `velocidade × tempo` ao longo desses pontos e inclina proporcional ao giro.
 - **O status vem do SignalR**: quando chega `StatusMotoristaAlterado`, o painel atualiza a tela e manda a cena mudar o comportamento da moto (circular, voltar para o restaurante, encostar, parar tombada).
 - Com `prefers-reduced-motion`, a moto pula direto para o destino: acessibilidade para quem passa mal com animação.
+- **Modo demonstração** (o link da Vercel): a Vercel não roda .NET nem SQL Server, então o painel pergunta `/health` ao abrir. Sem back-end, usa `demo.js`, uma API falsa em memória com as mesmas rotas e regras. Se perguntarem na entrevista: "o link é a vitrine; o sistema de verdade, com banco, procedures e testes, roda com `docker compose up` e está no GitHub".
 
 ## 9. xUnit e TDD
 
