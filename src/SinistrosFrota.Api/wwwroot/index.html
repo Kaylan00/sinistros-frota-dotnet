@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Central de Frota e Sinistros</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topo">
+    <div>
+      <h1>Central de Frota e Sinistros</h1>
+      <p class="sub">Rede Sabor de Casa · entregas próprias</p>
+    </div>
+    <div class="conexao" id="conexao" data-estado="conectando">
+      <span class="ponto"></span><span id="conexao-texto">Conectando</span>
+    </div>
+  </header>
+
+  <section class="resumo" aria-label="Resumo">
+    <div class="numero"><strong id="n-Disponivel">0</strong><span>Disponíveis</span></div>
+    <div class="numero"><strong id="n-EmEntrega">0</strong><span>Em entrega</span></div>
+    <div class="numero"><strong id="n-EmPausa">0</strong><span>Em pausa</span></div>
+    <div class="numero alerta"><strong id="n-Ocorrencia">0</strong><span>Em ocorrência</span></div>
+    <div class="numero"><strong id="n-abertos">0</strong><span>Sinistros em andamento</span></div>
+    <div class="numero"><strong id="n-apagar">R$ 0</strong><span>Aprovado a pagar</span></div>
+  </section>
+
+  <main class="grade">
+    <section class="painel" aria-labelledby="t-frota">
+      <div class="painel-cabeca">
+        <h2 id="t-frota">Frota agora</h2>
+        <span class="dica" id="frota-total"></span>
+      </div>
+      <table class="tabela frota">
+        <thead><tr><th>Motoboy</th><th>Moto</th><th>Status</th><th class="dir">Desde</th></tr></thead>
+        <tbody id="frota"></tbody>
+      </table>
+
+      <div class="painel-cabeca eventos-cabeca">
+        <h2>Últimos eventos</h2>
+      </div>
+      <ol class="eventos" id="eventos"></ol>
+    </section>
+
+    <section class="painel" aria-labelledby="t-fila">
+      <div class="painel-cabeca">
+        <h2 id="t-fila">Fila de sinistros</h2>
+        <button class="botao primario" id="abrir-novo" type="button">Abrir sinistro</button>
+      </div>
+      <table class="tabela fila">
+        <thead><tr><th>#</th><th>Ocorrência</th><th class="dir">Valor</th><th>Situação</th><th></th></tr></thead>
+        <tbody id="fila"></tbody>
+      </table>
+      <p class="vazio" id="fila-vazia" hidden>Nenhum sinistro em andamento.</p>
+    </section>
+  </main>
+
+  <dialog id="dlg-novo">
+    <form method="dialog" id="form-novo">
+      <h3>Abrir sinistro</h3>
+      <label>Motoboy
+        <select name="motoristaId" id="sel-motorista" required></select>
+      </label>
+      <label>Tipo
+        <select name="tipo" required>
+          <option value="Acidente">Acidente</option>
+          <option value="Roubo">Roubo</option>
+          <option value="AvariaMoto">Avaria da moto</option>
+          <option value="AvariaBau">Avaria do baú</option>
+        </select>
+      </label>
+      <label>Valor estimado do dano (R$)
+        <input name="valorEstimado" type="number" min="1" step="0.01" value="1500" required>
+      </label>
+      <label>O que aconteceu
+        <textarea name="descricao" rows="3" minlength="5" maxlength="500" required>Queda em pista molhada durante entrega</textarea>
+      </label>
+      <div class="acoes-dialogo">
+        <button class="botao" value="cancelar" formnovalidate>Cancelar</button>
+        <button class="botao primario" value="ok">Abrir</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-aprovar">
+    <form method="dialog" id="form-aprovar">
+      <h3 id="aprovar-titulo">Aprovar sinistro</h3>
+      <label>Dano apurado na vistoria (R$)
+        <input name="valorApurado" type="number" min="1" step="0.01" required>
+      </label>
+      <p class="dica">A indenização desconta a franquia da apólice e respeita o teto de cobertura. Roubo não tem franquia.</p>
+      <div class="acoes-dialogo">
+        <button class="botao" value="cancelar" formnovalidate>Cancelar</button>
+        <button class="botao primario" value="ok">Aprovar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="aviso" id="aviso" role="status" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

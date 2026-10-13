@@ -12,6 +12,7 @@ public sealed class OpcoesSimulador
 /// <summary>
 /// Só para a demonstração: a cada poucos segundos muda o status de um motoboy,
 /// como se o app dos entregadores estivesse mandando atualizações.
+/// Motoboy em ocorrência fica parado até a central liberar.
 /// Ligado por configuração (Simulador:Ativo). Usa o mesmo FrotaService da API,
 /// então cada mudança grava no banco e sai pelo SignalR.
 /// </summary>
@@ -59,7 +60,7 @@ public sealed class SimuladorFrota(IServiceScopeFactory escopos, OpcoesSimulador
                 ? (StatusMotorista.Disponivel, "Entrega concluída")
                 : (StatusMotorista.EmPausa, "Abastecendo"),
             StatusMotorista.EmPausa when segundosNoStatus > 15 => (StatusMotorista.Disponivel, null),
-            StatusMotorista.Ocorrencia when segundosNoStatus > 90 => (StatusMotorista.Disponivel, "Liberado pela base"),
+            // Ocorrência não é mexida pelo simulador: quem libera o motoboy é a central (PUT /status)
             _ => null
         };
 
