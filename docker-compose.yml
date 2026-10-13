@@ -1,0 +1,52 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_PID: Developer
+      # senha só de desenvolvimento local; troque no .env (veja .env.example)
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Sinistros!Dev2026}
+    ports:
+      - '${SQL_PORT:-14330}:1433'
+    volumes:
+      - mssqldata:/var/opt/mssql
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" -o /dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  api:
+    build: .
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SinistrosDb: Server=sqlserver,1433;Database=SinistrosFrota;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Sinistros!Dev2026};TrustServerCertificate=True
+      Simulador__Ativo: 'true'
+    ports:
+      - '${API_PORT:-5080}:8080'
+
+  # SQL Server descartável só para os testes de integração:
+  #   docker compose --profile test up -d sqlserver-test
+  # Sem volume: ao remover o container, a base some.
+  sqlserver-test:
+    profiles: ['test']
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Sinistros!Dev2026}
+    ports:
+      - '${SQL_TEST_PORT:-14331}:1433'
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" -o /dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  mssqldata:
