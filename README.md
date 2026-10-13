@@ -4,7 +4,9 @@ Central de uma rede de restaurantes com entrega própria: o **status de cada mot
 
 Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, SignalR e xUnit**. A regra que muda dinheiro e status fica no banco, em procedures T-SQL com transação e `TRY/CATCH`; o domínio em C# foi escrito em TDD.
 
-![Painel ao vivo](docs/painel-ao-vivo.png)
+![Mapa 3D da central com a frota ao vivo](docs/pc-1-visao-geral.png)
+
+![Motos andando pelo bairro](docs/motos-andando.gif)
 
 ## Por que este projeto existe
 
@@ -23,7 +25,7 @@ O tema vem do **Rende**, o sistema de pedidos para restaurantes que desenvolvo: 
 | API | ASP.NET Core 8 (controllers), Swagger em `/swagger`, ProblemDetails para erros |
 | Acesso a dados | EF Core 8 para leitura, cadastro e views; `ExecuteSql`/`ExecuteSqlRaw` parametrizado para as procedures |
 | Tempo real | SignalR (`/hubs/frota`) + simulador de status opcional (`BackgroundService`) |
-| Front | Página estática servida pela API (HTML, CSS e JS puro, cliente SignalR via CDN) |
+| Front | Mapa 3D em Three.js (r160) servido pela própria API: HTML, CSS e JS puro em módulos ES, sem etapa de build |
 | Testes | xUnit: 39 unitários do domínio (TDD) e 17 de integração com SQL Server real (`WebApplicationFactory`) |
 | Infra | Docker Compose (SQL Server + API, perfil de teste), Dockerfile multi-stage, GitHub Actions |
 
@@ -100,6 +102,31 @@ Exemplo de erro (sempre `application/problem+json`):
 
 Eventos do hub `/hubs/frota`: `StatusMotoristaAlterado` (linha da view da frota) e `SinistroAtualizado` (`{ evento, sinistro }`).
 
+## O painel 3D
+
+A central é um bairro low-poly visto de cima, com câmera de jogo de estratégia. Tudo o que aparece no mapa vem do banco e muda ao vivo pelo SignalR:
+
+- **Motos de verdade andando pelas ruas.** Cada motoboy é um modelo 3D (moto com baú na cor da unidade e piloto de capacete). *Em entrega* circula pela malha de ruas na faixa da direita, faz a curva arredondada e inclina como moto; *Disponível* volta e estaciona em frente ao restaurante; *Em pausa* encosta no meio-fio; *Ocorrência* fica parada, com a moto tombada, o motoboy em pé ao lado e o giroflex piscando.
+- **Sinistro vira marcador no local.** Abrir um sinistro põe um pino com cones no ponto onde a moto estava. Quando o sinistro é **aprovado**, a moto sai dali e vai sozinha até a **oficina credenciada**, onde fica até a central liberar o motoboy.
+- **Clique em qualquer moto ou pino** para abrir o painel da direita com motoboy, moto, apólice (vigência, cobertura e franquia) e sinistro, com as ações do fluxo (Iniciar análise, Aprovar, Negar, Pagar, Liberar) chamando a mesma API REST.
+- **Acompanhamento do sinistro** embaixo: linha do tempo Aberto, Em análise, Aprovado ou Negado, Pago, com os horários do histórico gravado pela procedure.
+- **Abas** Motoboys, Sinistros e Eventos ao vivo; **busca** (atalho `/`) por nome, placa ou número; **seletor de unidade**, que filtra os indicadores e leva a câmera até o restaurante.
+- **Câmera**: arrastar move, roda do mouse ou pinça aproxima, botões giram 45° e voltam à visão geral, e a câmera voa até o objeto selecionado e o acompanha. Prédio que tapa a moto selecionada fica translúcido.
+- **Celular**: o mapa ocupa a tela e os painéis viram uma gaveta que sobe de baixo. Com `prefers-reduced-motion`, as motos não desfilam: só mudam de lugar, e nada pisca.
+
+| Sinistro aberto | A caminho da oficina | Celular |
+| --- | --- | --- |
+| ![Sinistro aberto](docs/pc-3-sinistro-aberto.png) | ![Moto indo para a oficina](docs/pc-4-a-caminho-da-oficina.png) | ![Celular](docs/cel-3-sinistro-aberto.png) |
+
+Código em `src/SinistrosFrota.Api/wwwroot/js/`: `cidade.js` (ruas, quarteirões, unidades, oficina, seguradora), `moto.js` (modelos e o "piloto automático" pelas ruas), `cena.js` (renderização, câmera, marcadores, seleção) e `painel.js` (API, SignalR e interface).
+
+### Créditos e licenças
+
+- **Modelos 3D**: nenhum arquivo baixado. Prédios, casas, restaurantes, oficina, seguradora, árvores, motos, carros, cones e pinos são geometria montada no próprio código com primitivas do Three.js.
+- [Three.js](https://threejs.org) r160, licença MIT, carregado do jsDelivr.
+- Cliente [SignalR](https://github.com/dotnet/aspnetcore) 8.0.7, licença MIT, carregado do cdnjs.
+- Fontes [IBM Plex Sans e IBM Plex Mono](https://github.com/IBM/plex), SIL Open Font License, via Google Fonts.
+
 ## O banco
 
 ```
@@ -145,7 +172,3 @@ tests/
   SinistrosFrota.IntegrationTests/   API + SQL Server real
 database/                    scripts T-SQL
 ```
-
-## No celular
-
-<img src="docs/painel-celular.png" alt="Painel no celular" width="320">

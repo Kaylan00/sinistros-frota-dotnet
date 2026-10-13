@@ -13,7 +13,7 @@ Este arquivo é para você estudar antes da entrevista de **Desenvolvedor SQL J�
 Fluxo de um "aprovar sinistro":
 
 ```
-tela (app.js) -> POST /api/sinistros/12/transicoes
+tela (painel.js) -> POST /api/sinistros/12/transicoes
   -> SinistrosController -> SinistroService
      -> EF lê o sinistro e a apólice
      -> domínio C#: a transição é permitida? calcula franquia e indenização
@@ -173,6 +173,14 @@ Regra de ouro para falar na entrevista: **nunca rodar UPDATE ou DELETE sem WHERE
 - Por baixo, o SignalR usa WebSocket e, se não der, cai para outras técnicas (Server-Sent Events, long polling). O teste de integração usa long polling porque roda em memória.
 - `withAutomaticReconnect()` no JS: se a conexão cair, reconecta sozinho e a tela recarrega o estado.
 - **Simulador** (`Simulation/SimuladorFrota.cs`): um `BackgroundService` que a cada 3 segundos muda o status de um motoboy, como se fosse o app dos entregadores. Liga com `Simulador:Ativo = true`. Usa `IServiceScopeFactory` porque o serviço de fundo é singleton e o `DbContext` é scoped (precisa criar um escopo por ciclo).
+
+### O mapa 3D (wwwroot/js)
+
+- **Three.js** desenha a cena no navegador com WebGL. Nada de arquivo 3D baixado: cada prédio, moto e árvore é montado com formas simples (caixa, cilindro, esfera, cone).
+- A câmera é de perspectiva com ângulo fechado, o que dá o ar "isométrico" de jogo de estratégia. Arrastar move o alvo da câmera; a roda muda a distância.
+- **As motos andam por uma malha de ruas** (grade de cruzamentos). Para ir de um ponto a outro, uma busca em largura (BFS) acha o caminho entre cruzamentos; o caminho é deslocado para a faixa da direita e as esquinas viram curvas (Bézier). Em cada quadro a moto anda `velocidade × tempo` ao longo desses pontos e inclina proporcional ao giro.
+- **O status vem do SignalR**: quando chega `StatusMotoristaAlterado`, o painel atualiza a tela e manda a cena mudar o comportamento da moto (circular, voltar para o restaurante, encostar, parar tombada).
+- Com `prefers-reduced-motion`, a moto pula direto para o destino: acessibilidade para quem passa mal com animação.
 
 ## 9. xUnit e TDD
 
