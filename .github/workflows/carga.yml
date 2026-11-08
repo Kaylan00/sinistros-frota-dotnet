@@ -11,7 +11,7 @@ on:
         description: Usuários simultâneos
         default: '50'
       duracao:
-        description: Duração (ex.: 1m, 3m)
+        description: "Duração, por exemplo 1m ou 3m"
         default: '1m'
 
 env:
