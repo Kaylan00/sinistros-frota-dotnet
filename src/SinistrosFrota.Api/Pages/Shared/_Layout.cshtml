@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Titulo"] · Frota e Sinistros</title>
+    <link rel="stylesheet" href="~/relatorios.css" asp-append-version="true">
+</head>
+<body>
+    <header class="topo">
+        <a class="marca" href="/">Frota e Sinistros</a>
+        <nav>
+            <a href="/">Painel ao vivo</a>
+            <a href="/relatorios" class="ativo">Relatórios</a>
+            <a href="/swagger">API</a>
+        </nav>
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

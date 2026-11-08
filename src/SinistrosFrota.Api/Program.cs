@@ -1,9 +1,13 @@
 using System.Reflection;
+using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
+using Microsoft.Extensions.WebEncoders;
 using Microsoft.EntityFrameworkCore;
 using SinistrosFrota.Api.Data;
 using SinistrosFrota.Api.Erros;
 using SinistrosFrota.Api.Hubs;
+using SinistrosFrota.Api.Relatorios;
 using SinistrosFrota.Api.Services;
 using SinistrosFrota.Api.Simulation;
 
@@ -19,6 +23,13 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<FrotaService>();
 builder.Services.AddScoped<SinistroService>();
 builder.Services.AddSingleton<NotificadorFrota>();
+
+// Relatórios: Razor Pages lendo as views com Dapper (leitura pura, sem passar pelo EF)
+builder.Services.AddSingleton(new ConexaoSql(connectionString));
+builder.Services.AddScoped<RelatoriosRepository>();
+builder.Services.AddRazorPages();
+// acentos saem como texto no HTML, não como &#xED;
+builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -57,6 +68,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapControllers();
+app.MapRazorPages();
 app.MapHub<FrotaHub>(FrotaHub.Rota);
 app.MapGet("/health", async (SinistrosDbContext db, CancellationToken ct) =>
     await db.Database.CanConnectAsync(ct)

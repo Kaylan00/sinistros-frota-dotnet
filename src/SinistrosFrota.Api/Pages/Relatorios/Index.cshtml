@@ -1,0 +1,134 @@
+@page "/relatorios"
+@model SinistrosFrota.Api.Pages.Relatorios.IndexModel
+@{
+    ViewData["Titulo"] = "Relatórios";
+    var moeda = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+}
+
+<h1>Relatórios de sinistros</h1>
+<p class="apoio">Leitura direta das views do SQL Server com Dapper. Os números batem com a API em <code>/api/relatorios/sinistros-por-mes</code>.</p>
+
+<form method="get" class="filtros">
+    <label>
+        Período
+        <select asp-for="Meses">
+            <option value="3">Últimos 3 meses</option>
+            <option value="6">Últimos 6 meses</option>
+            <option value="12">Últimos 12 meses</option>
+            <option value="24">Últimos 24 meses</option>
+        </select>
+    </label>
+    <label>
+        Tipo
+        <select asp-for="Tipo">
+            <option value="">Todos</option>
+            @foreach (var t in SinistrosFrota.Api.Pages.Relatorios.IndexModel.Tipos)
+            {
+                <option value="@t">@SinistrosFrota.Api.Pages.Relatorios.IndexModel.NomeTipo(t)</option>
+            }
+        </select>
+    </label>
+    <label>
+        Seguradora
+        <select asp-for="Seguradora">
+            <option value="">Todas</option>
+            @foreach (var s in Model.Seguradoras)
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+    </label>
+    <label>
+        Aberto há pelo menos (h)
+        <input asp-for="HorasMinimas" type="number" min="0" max="8760">
+    </label>
+    <button type="submit">Filtrar</button>
+    <a class="exportar" asp-page-handler="Csv" asp-route-meses="@Model.Meses" asp-route-tipo="@Model.Tipo"
+       asp-route-seguradora="@Model.Seguradora" asp-route-horasMinimas="@Model.HorasMinimas">Baixar CSV da fila</a>
+</form>
+
+<div asp-validation-summary="All" class="erros"></div>
+
+<section>
+    <h2>Sinistros por mês</h2>
+    @if (Model.Resumo.Count == 0)
+    {
+        <p class="vazio">Nenhum sinistro no período.</p>
+    }
+    else
+    {
+        <table id="resumo">
+            <thead>
+                <tr>
+                    <th>Mês</th><th>Tipo</th><th class="num">Qtd.</th><th class="num">Em andamento</th>
+                    <th class="num">Aprovados</th><th class="num">Negados</th>
+                    <th class="num">Estimado</th><th class="num">Indenizado</th><th class="num">Pago</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var l in Model.Resumo)
+                {
+                    <tr>
+                        <td>@l.Mes.ToString("MMM/yyyy", moeda)</td>
+                        <td>@SinistrosFrota.Api.Pages.Relatorios.IndexModel.NomeTipo(l.Tipo)</td>
+                        <td class="num">@l.Quantidade</td>
+                        <td class="num">@l.EmAndamento</td>
+                        <td class="num">@l.Aprovados</td>
+                        <td class="num">@l.Negados</td>
+                        <td class="num">@l.ValorEstimadoTotal.ToString("C", moeda)</td>
+                        <td class="num">@l.ValorIndenizadoTotal.ToString("C", moeda)</td>
+                        <td class="num">@l.ValorPago.ToString("C", moeda)</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2">Total</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.Quantidade)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.EmAndamento)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.Aprovados)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.Negados)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.ValorEstimadoTotal).ToString("C", moeda)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.ValorIndenizadoTotal).ToString("C", moeda)</td>
+                    <td class="num">@Model.Resumo.Sum(l => l.ValorPago).ToString("C", moeda)</td>
+                </tr>
+            </tfoot>
+        </table>
+    }
+</section>
+
+<section>
+    <h2>Fila em aberto <span class="contagem">@Model.EmAberto.Count</span></h2>
+    @if (Model.EmAberto.Count == 0)
+    {
+        <p class="vazio">Nada na fila com esses filtros.</p>
+    }
+    else
+    {
+        <table id="fila">
+            <thead>
+                <tr>
+                    <th>#</th><th>Status</th><th>Tipo</th><th>Motoboy</th><th>Restaurante</th>
+                    <th>Placa</th><th>Seguradora</th><th class="num">Estimado</th><th class="num">Horas</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.EmAberto)
+                {
+                    <tr class="@(s.HorasEmAberto >= 48 ? "atrasado" : null)">
+                        <td>@s.SinistroId</td>
+                        <td>@SinistrosFrota.Api.Pages.Relatorios.IndexModel.NomeStatus(s.Status)</td>
+                        <td>@SinistrosFrota.Api.Pages.Relatorios.IndexModel.NomeTipo(s.Tipo)</td>
+                        <td>@s.Motorista</td>
+                        <td>@s.Restaurante</td>
+                        <td>@s.Placa</td>
+                        <td>@s.Seguradora</td>
+                        <td class="num">@s.ValorEstimado.ToString("C", moeda)</td>
+                        <td class="num">@s.HorasEmAberto</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="legenda">Linhas destacadas estão abertas há 48 horas ou mais.</p>
+    }
+</section>

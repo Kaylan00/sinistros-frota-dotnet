@@ -254,6 +254,22 @@ No C# dá erro rápido e é fácil de testar (TDD, 39 testes em milissegundos). 
 **15. Quando usar EF e quando usar SQL direto/procedure?**
 EF para CRUD e consultas comuns (produtividade, LINQ tipado). SQL/procedure quando a regra é crítica, precisa de lock e transação controlada, ou a consulta é pesada e precisa de ajuste fino. No projeto: EF para ler e cadastrar, procedures para mudar o status do sinistro.
 
+## 11b. Relatórios (Razor Pages + Dapper) e teste de carga
+
+**Por que Razor Pages e não MVC?** Para uma tela que é "uma página com um formulário de filtro", Razor Pages junta a view (`Index.cshtml`) e o código dela (`Index.cshtml.cs`, o PageModel) no mesmo lugar. MVC separaria em controller, view e model; vale mais quando há muitas ações sobre o mesmo recurso. Os dois usam o mesmo motor Razor e os mesmos tag helpers (`asp-for`, `asp-page-handler`).
+
+**Como os filtros chegam?** `[BindProperty(SupportsGet = true)]` liga a query string às propriedades. `[Range]` valida, e quando `ModelState` é inválido a tela mostra o erro (`asp-validation-summary`) e não consulta o banco. O CSV é outro handler da mesma página: `OnGetCsvAsync` responde em `?handler=Csv`.
+
+**Por que Dapper aqui e EF no resto?** O EF já cuida de cadastro e das views na API. A tela de relatórios é só leitura de view com filtro opcional: SQL escrito à mão fica mais claro e o Dapper só mapeia o resultado para a classe. Sempre com parâmetro (`@tipo`), nunca concatenação. O teste compara o total do Dapper com o total da API em EF.
+
+**O que é o DbString?** É o jeito do Dapper dizer o tipo exato do parâmetro. A coluna `Tipo` é `VARCHAR(12)`; se o parâmetro fosse `NVARCHAR` (padrão do .NET), o SQL Server converteria a coluna para comparar e poderia deixar de usar o índice.
+
+**O que o Locust achou?** Com 300 usuários, um deadlock (erro 1205) entre a leitura da fila e as procedures que abrem e mudam sinistros. Sob `READ COMMITTED` normal, leitura pede lock compartilhado e espera a escrita; duas transações pegando locks em ordem diferente se travam e o SQL Server mata uma. A correção foi `READ_COMMITTED_SNAPSHOT`: a leitura lê a última versão confirmada (guardada no tempdb) e não espera. A escrita continua com os locks das procedures, então o pagamento duplicado continua barrado.
+
+**Como provar que corrigiu?** Teste de integração que segura uma transação de escrita aberta e lê a fila com limite de 5 s: sem snapshot ele trava (testado), com snapshot passa. E o mesmo cenário de carga de novo: 0 erros e p99 de 550 ms para 42 ms.
+
+**p95, p99?** p95 = 95% das requisições responderam abaixo desse tempo. A média esconde as lentas; o p99 mostra quem esperou lock.
+
 ## 12. Comandos para mostrar ao vivo
 
 ```bash
@@ -262,7 +278,7 @@ docker compose up -d --build                 # banco + API + simulador
 # painel: http://localhost:5080   swagger: http://localhost:5080/swagger
 
 docker compose --profile test up -d sqlserver-test
-dotnet test                                  # 39 unitários + 17 integração
+dotnet test                                  # 39 unitários + 26 integração
 ```
 
 Para rodar uma query no banco do container:

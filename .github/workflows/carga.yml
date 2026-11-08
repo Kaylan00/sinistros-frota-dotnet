@@ -1,0 +1,87 @@
+name: Teste de carga
+
+# Sobe a API com um SQL Server descartável e roda o Locust por 1 minuto.
+# Reprova se passar de 1% de erro ou se o p95 passar de 300 ms (critério no locustfile).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      usuarios:
+        description: Usuários simultâneos
+        default: '50'
+      duracao:
+        description: Duração (ex.: 1m, 3m)
+        default: '1m'
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  locust:
+    runs-on: ubuntu-latest
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_PID: Developer
+          # senha descartável: o container só existe durante o job
+          MSSQL_SA_PASSWORD: Ci!Sinistros2026
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ci!Sinistros2026' -C -b -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+          --health-start-period 20s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Publicar a API
+        run: dotnet publish src/SinistrosFrota.Api -c Release -o publicado
+
+      - name: Subir a API (com o simulador da frota ligado, como em produção)
+        env:
+          ASPNETCORE_URLS: http://localhost:5080
+          ConnectionStrings__SinistrosDb: Server=localhost,1433;Database=SinistrosFrota;User Id=sa;Password=Ci!Sinistros2026;TrustServerCertificate=True
+          Simulador__Ativo: 'true'
+          Logging__LogLevel__Default: Warning
+        run: |
+          nohup dotnet publicado/SinistrosFrota.Api.dll > api.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:5080/health && exit 0; sleep 2; done
+          cat api.log; exit 1
+
+      - name: Instalar o Locust
+        run: pip install locust==2.32.4
+
+      - name: Rodar o teste de carga
+        run: |
+          locust -f tests/carga/locustfile.py --host http://localhost:5080 --headless \
+            -u ${{ inputs.usuarios || '50' }} -r 10 -t ${{ inputs.duracao || '1m' }} \
+            --only-summary --csv resultado --html relatorio-carga.html
+
+      - name: Erros da API durante o teste
+        if: always()
+        run: grep -i -E "fail|exception" -A3 api.log || echo "Nenhum erro no log da API."
+
+      - name: Guardar o relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-carga
+          path: |
+            relatorio-carga.html
+            resultado_*.csv

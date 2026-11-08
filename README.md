@@ -4,7 +4,7 @@
 
 Central de uma rede de restaurantes com entrega própria: o **status de cada motoboy aparece ao vivo** (disponível, em entrega, em pausa, em ocorrência) e os **sinistros da frota** (acidente, roubo, avaria da moto ou do baú) seguem um fluxo controlado até o pagamento da indenização pelo seguro.
 
-Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, SignalR e xUnit**. A regra que muda dinheiro e status fica no banco, em procedures T-SQL com transação e `TRY/CATCH`; o domínio em C# foi escrito em TDD.
+Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, Dapper, Razor Pages, SignalR e xUnit**, com teste de carga em **Locust**. A regra que muda dinheiro e status fica no banco, em procedures T-SQL com transação e `TRY/CATCH`; o domínio em C# foi escrito em TDD.
 
 ![Mapa 3D da central com a frota ao vivo](docs/pc-1-visao-geral.png)
 
@@ -25,11 +25,12 @@ O tema vem do **Rende**, o sistema de pedidos para restaurantes que desenvolvo: 
 | --- | --- |
 | Banco | SQL Server 2022: tabelas com PK/FK/UNIQUE/CHECK, índices, 3 views, 3 procedures T-SQL |
 | API | ASP.NET Core 8 (controllers), Swagger em `/swagger`, ProblemDetails para erros |
-| Acesso a dados | EF Core 8 para leitura, cadastro e views; `ExecuteSql`/`ExecuteSqlRaw` parametrizado para as procedures |
+| Relatórios | Razor Pages em `/relatorios` (filtros com validação e exportação CSV) |
+| Acesso a dados | EF Core 8 para cadastro e views; `ExecuteSql`/`ExecuteSqlRaw` parametrizado para as procedures; Dapper nas consultas da tela de relatórios |
 | Tempo real | SignalR (`/hubs/frota`) + simulador de status opcional (`BackgroundService`) |
 | Front | Mapa 3D em Three.js (r160) servido pela própria API: HTML, CSS e JS puro em módulos ES, sem etapa de build |
-| Testes | xUnit: 39 unitários do domínio (TDD) e 17 de integração com SQL Server real (`WebApplicationFactory`) |
-| Infra | Docker Compose (SQL Server + API, perfil de teste), Dockerfile multi-stage, GitHub Actions |
+| Testes | xUnit: 39 unitários do domínio (TDD) e 26 de integração com SQL Server real (`WebApplicationFactory`); carga com Locust ([resultados](tests/carga/README.md)) |
+| Infra | Docker Compose (SQL Server + API, perfil de teste), Dockerfile multi-stage, GitHub Actions (CI e teste de carga) |
 
 ## Como rodar
 
@@ -89,6 +90,8 @@ Os testes de integração apagam e recriam a base `SinistrosFrotaTestes` a cada 
 | GET | `/api/apolices?motoristaId=` | Apólices e se estão vigentes hoje |
 | GET | `/api/relatorios/sinistros-por-mes?meses=6` | Resumo mensal por tipo (view `vw_ResumoSinistrosPorMes`) |
 | GET | `/health` | API e banco |
+| GET | `/relatorios?meses=&tipo=&seguradora=&horasMinimas=` | Tela de relatórios (Razor Pages) |
+| GET | `/relatorios?handler=Csv&...` | Fila em aberto em CSV, com os mesmos filtros |
 
 Exemplo de erro (sempre `application/problem+json`):
 
@@ -103,6 +106,16 @@ Exemplo de erro (sempre `application/problem+json`):
 ```
 
 Eventos do hub `/hubs/frota`: `StatusMotoristaAlterado` (linha da view da frota) e `SinistroAtualizado` (`{ evento, sinistro }`).
+
+## Tela de relatórios
+
+`/relatorios` é para quem cuida do seguro no backoffice: resumo mensal por tipo (quantidade, valor estimado, indenizado e pago) e a fila do que ainda não terminou, com filtro por período, tipo, seguradora e horas em aberto. Sinistro aberto há 48 horas ou mais fica destacado. O botão de CSV baixa a fila com os mesmos filtros, pronta para abrir no Excel.
+
+![Tela de relatórios em Razor Pages](docs/pc-5-relatorios.png)
+
+## Teste de carga
+
+O Locust ([tests/carga](tests/carga/README.md)) simula a central, o backoffice e a operação ao mesmo tempo. Com 300 usuários ele achou um deadlock entre a leitura dos relatórios e as procedures de escrita. Corrigido com `READ_COMMITTED_SNAPSHOT` e coberto por um teste de integração: 25.465 requisições, 0 erros, p95 de 18 ms e p99 de 42 ms (antes, 550 ms). Roda no GitHub Actions a cada push.
 
 ## O painel 3D
 
@@ -165,6 +178,10 @@ Além de PK e FK, os `CHECK`s garantem coerência entre colunas: só sinistro `P
 
 **Status do motoboy como log.** Cada mudança é um `INSERT` em `StatusMotorista`; o status atual é a linha mais recente, buscada com `OUTER APPLY (SELECT TOP 1 ...)` sobre um índice `(MotoristaId, RegistradoEm DESC)`. O histórico fica completo e o script `ajuste_03` faz o expurgo em lotes, sempre mantendo a linha atual de cada motorista.
 
+**Dapper só onde é leitura de relatório.** A tela de relatórios lê as views com SQL escrito à mão e parametrizado. Os parâmetros têm o mesmo tipo e tamanho da coluna (`VARCHAR(12)` no tipo, `NVARCHAR(80)` na seguradora), para o SQL Server não converter a coluna na comparação e continuar usando o índice. O teste `Resumo_do_Dapper_bate_com_a_API_feita_em_EF_Core` confere que os dois caminhos dão o mesmo total.
+
+**Leitura não espera escrita.** A base usa `READ_COMMITTED_SNAPSHOT`: consultas leem a última versão confirmada e não disputam lock com as procedures. Veio de um deadlock achado no teste de carga (detalhes em [tests/carga](tests/carga/README.md)).
+
 **Datas em UTC.** O banco grava `SYSUTCDATETIME()`, o EF marca as datas como UTC e o navegador mostra no fuso local.
 
 **Sem autenticação.** É projeto de estudo: o usuário que vai para o histórico vem do cabeçalho `X-Usuario`. Num sistema real viria do token.
@@ -174,9 +191,11 @@ Além de PK e FK, os `CHECK`s garantem coerência entre colunas: só sinistro `P
 ```
 src/
   SinistrosFrota.Domain/     Models (Sinistro, Apolice, enums), Services (RegrasTransicao, CalculadoraIndenizacao), Exceptions
-  SinistrosFrota.Api/        Controllers, Services, Data (DbContext, inicializador, scripts), Hubs, Simulation, Erros, wwwroot
+  SinistrosFrota.Api/        Controllers, Services, Data (DbContext, inicializador, scripts), Hubs, Simulation, Erros, wwwroot,
+                             Pages (Razor Pages), Relatorios (consultas Dapper)
 tests/
   SinistrosFrota.Tests/              unitários do domínio
   SinistrosFrota.IntegrationTests/   API + SQL Server real
+  carga/                             Locust: cenários, critério de aprovação e resultados
 database/                    scripts T-SQL
 ```

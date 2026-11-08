@@ -20,8 +20,22 @@ public static class BancoInicializador
 
         await using (var conexao = await AbrirComRetentativaAsync(master, logger, ct))
         {
+            // READ_COMMITTED_SNAPSHOT: leitura lê a última versão confirmada em vez de esperar o lock da escrita.
+            // O teste de carga (tests/carga) pegou um deadlock entre a tela de relatórios e as procedures
+            // de abertura/transição com 300 usuários; com o snapshot ligado o erro sumiu.
             await using var cmd = new SqlCommand(
-                "IF DB_ID(@nome) IS NULL BEGIN DECLARE @sql NVARCHAR(300) = N'CREATE DATABASE ' + QUOTENAME(@nome); EXEC (@sql); END",
+                """
+                IF DB_ID(@nome) IS NULL
+                BEGIN
+                    DECLARE @sql NVARCHAR(300) = N'CREATE DATABASE ' + QUOTENAME(@nome);
+                    EXEC (@sql);
+                END
+                IF EXISTS (SELECT 1 FROM sys.databases WHERE name = @nome AND is_read_committed_snapshot_on = 0)
+                BEGIN
+                    DECLARE @rcsi NVARCHAR(300) = N'ALTER DATABASE ' + QUOTENAME(@nome) + N' SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE';
+                    EXEC (@rcsi);
+                END
+                """,
                 conexao);
             cmd.Parameters.AddWithValue("@nome", nomeBanco);
             await cmd.ExecuteNonQueryAsync(ct);
