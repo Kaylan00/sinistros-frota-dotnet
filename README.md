@@ -4,7 +4,7 @@
 
 Central de uma rede de restaurantes com entrega própria: o **status de cada motoboy aparece ao vivo** (disponível, em entrega, em pausa, em ocorrência) e os **sinistros da frota** (acidente, roubo, avaria da moto ou do baú) seguem um fluxo controlado até o pagamento da indenização pelo seguro.
 
-Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, Dapper, Razor Pages, SignalR e xUnit**, com teste de carga em **Locust**. A regra que muda dinheiro e status fica no banco, em procedures T-SQL com transação e `TRY/CATCH`; o domínio em C# foi escrito em TDD.
+Feito com **C#, ASP.NET Core 8, SQL Server 2022, Entity Framework Core 8, Dapper, Razor Pages, SignalR e xUnit**, com teste de carga em **Locust**. As regras de negócio ficam num projeto de domínio em C#, sem dependência de banco e escrito em TDD (`Sinistro` controla as transições de status e `Apolice` calcula a franquia). A gravação que mexe com dinheiro e status passa por procedures T-SQL com transação e `TRY/CATCH`, que validam de novo para dois pedidos ao mesmo tempo não pagarem a mesma indenização duas vezes.
 
 ![Mapa 3D da central com a frota ao vivo](docs/pc-1-visao-geral.png)
 

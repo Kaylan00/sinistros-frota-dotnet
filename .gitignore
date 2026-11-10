@@ -9,3 +9,5 @@ TestResults/
 *.log
 .env
 .DS_Store
+__pycache__/
+GUIA_DE_ESTUDO.md

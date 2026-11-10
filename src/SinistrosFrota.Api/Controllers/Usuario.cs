@@ -1,8 +1,8 @@
 namespace SinistrosFrota.Api.Controllers;
 
 /// <summary>
-/// Quem fez a ação, para o histórico. Sem autenticação neste projeto de estudo:
-/// vem do cabeçalho X-Usuario (num sistema real viria do token de login).
+/// Quem fez a ação, para o histórico. Nesta versão vem do cabeçalho X-Usuario;
+/// com login, passa a vir do token (claim preferred_username).
 /// </summary>
 internal static class Usuario
 {
